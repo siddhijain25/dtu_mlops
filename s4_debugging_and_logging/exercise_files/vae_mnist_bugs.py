@@ -11,6 +11,9 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.utils import save_image
 
+import pdb
+
+
 # Model Hyperparameters
 dataset_path = 'datasets'
 cuda = True
@@ -22,6 +25,7 @@ latent_dim = 20
 lr = 1e-3
 epochs = 20
 
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Data loading
 mnist_transform = transforms.Compose([transforms.ToTensor()])
@@ -44,16 +48,19 @@ class Encoder(nn.Module):
     def forward(self, x):
         h_       = torch.relu(self.FC_input(x))
         mean     = self.FC_mean(h_)
-        log_var  = self.FC_var(h_)                     
-                                                      
-        z        = self.reparameterization(mean, log_var)
+        log_var  = self.FC_var(h_)
+
+
+        std      = torch.exp(0.5*log_var)                                                 
+        z        = self.reparameterization(mean, std)
         
         return z, mean, log_var
        
-    def reparameterization(self, mean, var):
-        epsilon = torch.randn(*var.shape)
+    def reparameterization(self, mean, std):
+        epsilon = torch.randn_like(std)
         
-        z = mean + var*epsilon
+        
+        z = mean + std*epsilon
         
         return z
     
@@ -61,14 +68,14 @@ class Decoder(nn.Module):
     def __init__(self, latent_dim, hidden_dim, output_dim):
         super(Decoder, self).__init__()
         self.FC_hidden = nn.Linear(latent_dim, hidden_dim)
-        self.FC_output = nn.Linear(latent_dim, output_dim)
+        self.FC_output = nn.Linear(hidden_dim, output_dim)
         
     def forward(self, x):
         h     = torch.relu(self.FC_hidden(x))
         x_hat = torch.sigmoid(self.FC_output(h))
         return x_hat
-    
-    
+
+
 class Model(nn.Module):
     def __init__(self, Encoder, Decoder):
         super(Model, self).__init__()
@@ -107,6 +114,7 @@ for epoch in range(epochs):
         x = x.view(batch_size, x_dim)
         x = x.to(DEVICE)
 
+        optimizer.zero_grad()
         x_hat, mean, log_var = model(x)
         loss = loss_function(x, x_hat, mean, log_var)
         

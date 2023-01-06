@@ -11,6 +11,16 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.utils import save_image
 
+import wandb
+
+wandb.init(project="exercises", entity="dtu_mlopss")
+
+wandb.config = {
+  "learning_rate": 0.001,
+  "epochs": 100,
+  "batch_size": 128
+}
+
 # Model Hyperparameters
 dataset_path = 'datasets'
 cuda = torch.cuda.is_available()
@@ -89,6 +99,9 @@ model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)
 
 from torch.optim import Adam
 
+# Magic
+wandb.watch(model, log_freq=100)
+
 BCE_loss = nn.BCELoss()
 
 def loss_function(x, x_hat, mean, log_var):
@@ -117,6 +130,8 @@ for epoch in range(epochs):
         
         loss.backward()
         optimizer.step()
+        
+        wandb.log({"loss": loss})
     print("\tEpoch", epoch + 1, "complete!", "\tAverage Loss: ", overall_loss / (batch_idx*batch_size))    
 print("Finish!!")
 
@@ -131,6 +146,9 @@ with torch.no_grad():
 
 save_image(x.view(batch_size, 1, 28, 28), 'orig_data.png')
 save_image(x_hat.view(batch_size, 1, 28, 28), 'reconstructions.png')
+
+wandb.log({"original": wandb.Image(x.view(batch_size, 1, 28, 28))})
+wandb.log({"reconstructions": wandb.Image(x_hat.view(batch_size, 1, 28, 28))})
 
 # Generate samples
 with torch.no_grad():
